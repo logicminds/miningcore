@@ -1,0 +1,89 @@
+version: '3'
+
+services:
+  monerod:
+    container_name: monero-full-node
+    restart: always
+    image: blockops/monero-full-node
+    volumes:
+       - ./data/blockchain-monero:/home/monero/.bitmonero
+    ports:
+      - 18080:18080
+      - 18081:18081
+    hostname: monerod
+
+
+  postgres_db:
+    container_name: postgres_db
+    image: blockops/postgres:miningcore
+    build:
+      context: docker/postgres
+      dockerfile: Dockerfile
+    user: postgres
+    environment:
+      POSTGRES_USER: miningcore
+      POSTGRES_PASSWORD: miningcore
+      POSTGRES_DB: miningcore
+    ports:
+      - 5432:5432
+    #volumes:
+      # - ./.tmp/postgres_db:/var/lib/postgresql/data
+      # - ./.tmp/backups/:/backups
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # exccd:
+  #   image: exccco/exccd:2.2.0-alpine3.9
+  #   ports:
+  #     - 9666:9666
+  #   volumes:
+  #     - ./conf/exccd.conf:/app/exccd.conf
+  #     - ./conf/exccd.cert:/app/rpc.cert
+  #     - ./conf/exccd.key:/app/rpc.key
+  #     - exccd-data:/data
+
+  # exccwallet:
+  #   image: exccco/exccwallet:2.2.0-alpine3.9
+  #   volumes:
+  #     - ./conf/exccwallet.conf:/app/exccwallet.conf
+  #     - ./conf/exccd.cert:/app/exccd.cert
+  #     - exccwallet-data:/data
+  #   depends_on:
+  #     - exccd
+
+  miningcore:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: blockops/miningcore:v74
+    user: miningcore
+    ports:
+      - 3032-3199:3032-3199
+      - 4000:4000
+      - 4066:4066
+      - 4067:4067
+    volumes:
+      - ./config/config.json:/app/config.json
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+  #     # - exccd
+  #     # - exccwallet
+
+  miningcore-ui:
+    image: blockops/miningcore-ui:0.1.0
+    ports:
+      - 8081:80
+    environment:
+      - API_URL=http://miningcore:4000/api
+      - DEFAULT_POOL=xmr1
+    depends_on:
+      - miningcore
+
+# volumes:
+#   postgres-data:
